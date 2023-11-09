@@ -7,35 +7,45 @@
 
 package main
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // token type iota
 const (
-	tNewLine          = iota // \n
-	tString                  // ".*"
-	tInteger                 // [0-9]+
-	tDot                     // "."
-	tComma                   // ","
-	tBreak                   // ";"
-	tPlus                    // "+"
-	tMinus                   // "-"
-	tMultiple                // "*"
-	tDivide                  // "/"
-	tLParen                  // "("
-	tRParen                  // ")"
-	tLBrace                  // "{"
-	tRBrace                  // "}"
-	tCalcNotEqual            // "!="
-	tCalcLessThan            // "<"
-	tCalcLessEqual           // "<="
-	tCalcGreaterThan         // ">"
-	tCalcGreaterEqual        // ">="
-	tCalcEqual               // "=="
-	tEqual                   // "="
-	tIf                      // "if"
-	tElse                    // "else"
-	tFor                     // "for"
-	tIdentifier              // [a-zA-Z_][a-zA-Z0-9_]*
+	tInvalid = iota
+	tNewLine // \n
+	tString  // ".*"
+	tInteger // [0-9]+
+	tDot     // "."
+	tComma   // ","
+	tBreak   // ";"
+	tLParen  // "("
+	tRParen  // ")"
+	tLBrace  // "{"
+	tRBrace  // "}"
+	// Operators and functions
+	// binary operators
+	tPlus     // "+"
+	tMinus    // "-"
+	tMultiply // "*"
+	tDivide   // "/"
+	// compare operators
+	tCalcNotEqual     // "!="
+	tCalcLessThan     // "<"
+	tCalcLessEqual    // "<="
+	tCalcGreaterThan  // ">"
+	tCalcGreaterEqual // ">="
+	tCalcEqual        // "=="
+	tEqual            // "="
+	// keywords Statement
+	tIf         // "if"
+	tElse       // "else"
+	tFor        // "for"
+	tWhile      // "while"
+	tPrint      // "print"
+	tIdentifier // [a-zA-Z_][a-zA-Z0-9_]*
 )
 
 type token struct {
@@ -46,7 +56,7 @@ type token struct {
 }
 
 // lex and tokenize the content
-func tokenize(content []byte) (tokens []token) {
+func tokenize(content []byte) (tokens []token, err error) {
 	tokens = make([]token, len(content))
 	i := 0
 	line := 1
@@ -140,7 +150,7 @@ func tokenize(content []byte) (tokens []token) {
 
 		// "*"                     return TOKEN(tMultiple);
 		case content[currPos] == '*':
-			tokens[i] = token{tMultiple, "*", line, col}
+			tokens[i] = token{tMultiply, "*", line, col}
 			i++
 			col++
 			break
@@ -260,6 +270,14 @@ func tokenize(content []byte) (tokens []token) {
 			currPos = currPos + 2
 			break
 
+		// "while"                 return TOKEN(tWhile);
+		case content[currPos] == 'w' && content[currPos+1] == 'h' && content[currPos+2] == 'i' && content[currPos+3] == 'l' && content[currPos+4] == 'e':
+			tokens[i] = token{tWhile, "while", line, col}
+			i++
+			col = col + 5
+			currPos = currPos + 4
+			break
+
 		//	[a-zA-Z_][a-zA-Z0-9_]*  SAVE_TOKEN; return tIdentifier;
 		case content[currPos] >= 'a' && content[currPos] <= 'z' || content[currPos] >= 'A' && content[currPos] <= 'Z' || content[currPos] == '_':
 			targetPos := currPos + 1
@@ -275,7 +293,8 @@ func tokenize(content []byte) (tokens []token) {
 
 		default:
 			fmt.Printf("invalid token at pos %d, line %d, col %d", currPos, line, col)
+			return nil, errors.New("invalid token")
 		}
 	}
-	return tokens[0:i]
+	return tokens[0:i], nil
 }
