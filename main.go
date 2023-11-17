@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 )
@@ -27,7 +28,12 @@ func main() {
 	}
 	//fmt.Printf("%+v\n", ast)
 	_ = os.WriteFile("test.ast", []byte(fmt.Sprintf("%+v", ast)), 0o644)
+	j, e := json.Marshal(ast)
+	if e == nil {
+		_ = os.WriteFile("test.ast.json", j, 0o644)
+	}
 
+	// 中间代码执行
 	_ = ast.run()
 
 	//flag.Parse()
@@ -55,4 +61,5 @@ func main() {
 	//	}
 	//	_ = os.WriteFile(target[i]+".ast", []byte(fmt.Sprintf("%+v", ast)), 0o644)
 	//}
+	return
 }

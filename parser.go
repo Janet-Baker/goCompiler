@@ -13,22 +13,23 @@ import (
 )
 
 /*
-We will define our type, `node` here. Within node are pointers types to what
+We will define our type, `node` here. Within Node are pointers types to what
 would otherwise be recursive types in Go. e.g.
 
-callee    node
+callee    Node
 
 Would cause the Go compiler to complain about a recursive type. When we want
 to use one of these types to pass through to a function, for example, we'd
 use `&` as it'd be a reference. But we'll come to that a bit later on.
 */
-type node struct {
-	kind   int
-	value  string
-	name   string
+
+type Node struct {
+	Kind   int
+	Value  string
+	Name   string
 	token  token // 打印错误信息用
-	body   []node
-	params []node
+	Body   []Node
+	Params []Node
 	//callee     *node
 	//expression *node
 	//arguments  *[]node
@@ -60,7 +61,7 @@ const (
 	aStatement
 
 	//有参数的语句块，例如if(){}else{}
-	/*var ifNode = node{
+	/*var ifNode = Node{
 		kind: aStatementWithBodyAndParams,
 		name: "if",
 		params: []node{
@@ -110,7 +111,7 @@ var astNode = ast{
 		},
 	},
 }*/
-func parser(tokens *[]token) (node, error) {
+func parser(tokens *[]token) (Node, error) {
 	/*Here, we initially give both the parser counter and the parser tokens a
 	value.*/
 	pc = 0
@@ -118,9 +119,9 @@ func parser(tokens *[]token) (node, error) {
 
 	/*Now, we're going to create our AST which will have a root which is a
 	`Program` node.*/
-	astRoot := node{
-		kind: aProgram,
-		body: []node{},
+	astRoot := Node{
+		Kind: aProgram,
+		Body: []Node{},
 	}
 	ns.push(&astRoot)
 	/*And we're going to kickstart our `walk` function, which you can find just
@@ -135,11 +136,11 @@ func parser(tokens *[]token) (node, error) {
 	for pc < len(*tokens) {
 		astBodyNode, err := walk()
 		if err == nil {
-			astRoot.body = append(astRoot.body, astBodyNode)
+			astRoot.Body = append(astRoot.Body, astBodyNode)
 		} else if err.Error() == "skip" {
 			continue
 		} else {
-			return node{}, err
+			return Node{}, err
 		}
 	}
 
@@ -166,7 +167,7 @@ define a `walk` function.
 // int f(int a, int b) { return a + b; }
 // f(1, 2)
 // int main(){}
-func walk() (node, error) {
+func walk() (Node, error) {
 	/*Inside the walk function we start by grabbing the `current` token.*/
 	currentToken := pt[pc]
 
@@ -184,11 +185,11 @@ func walk() (node, error) {
 		to set the name as the current token's value since the next token after
 		the open parenthesis is the name of the function.*/
 
-		currentNode := node{
-			kind:   aExpression,
-			name:   currentToken.value,
+		currentNode := Node{
+			Kind:   aExpression,
+			Name:   currentToken.value,
 			token:  currentToken,
-			params: []node{},
+			Params: []Node{},
 		}
 		ns.push(&currentNode)
 
@@ -202,12 +203,12 @@ func walk() (node, error) {
 			// push it into our `node.params`.
 			tempNode, err := walk()
 			if err == nil {
-				currentNode.params = append(currentNode.params, tempNode)
+				currentNode.Params = append(currentNode.Params, tempNode)
 				currentToken = pt[pc]
 			} else if err.Error() == "skip" {
 				currentToken = pt[pc]
 			} else {
-				return node{}, err
+				return Node{}, err
 			}
 		}
 
@@ -229,11 +230,11 @@ func walk() (node, error) {
 		/*We create a base node with the type `aExpression`, and we're going
 		to set the name as the current token's value since the next token after
 		the open parenthesis is the name of the function.*/
-		currentNode := node{
-			kind:  aStatement,
-			name:  currentToken.value,
+		currentNode := Node{
+			Kind:  aStatement,
+			Name:  currentToken.value,
 			token: currentToken,
-			body:  []node{},
+			Body:  []Node{},
 		}
 		ns.push(&currentNode)
 		for currentToken.kind != tRBrace {
@@ -241,12 +242,12 @@ func walk() (node, error) {
 			// push it into our `node.params`.
 			tempNode, err := walk()
 			if err == nil {
-				currentNode.body = append(currentNode.body, tempNode)
+				currentNode.Body = append(currentNode.Body, tempNode)
 				currentToken = pt[pc]
 			} else if err.Error() == "skip" {
 				currentToken = pt[pc]
 			} else {
-				return node{}, err
+				return Node{}, err
 			}
 		}
 
@@ -262,84 +263,88 @@ func walk() (node, error) {
 	// * /
 	if currentToken.kind == tMultiply || currentToken.kind == tDivide {
 		lastSubNode := ns.peek()
-		if lastSubNode.kind == aProgram || lastSubNode.kind == aStatement {
+		if lastSubNode.Kind == aProgram || lastSubNode.Kind == aStatement {
 			// working at the top level
-			l := len(lastSubNode.body)
+			l := len(lastSubNode.Body)
 			if l > 0 && pc < len(pt)-1 {
 				pc++
 				rightNode, err := walk()
 				if err == nil {
-					if rightNode.kind == aBlank {
-						return node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
+					if rightNode.Kind == aBlank {
+						return Node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
 					}
 					// a = 1 + 2 * 3
 
 					// insert to the ground of the tree
-					parentOfLastNode := &lastSubNode.body[l-1]
-					if len(parentOfLastNode.params) > 0 {
-						lastNode := &parentOfLastNode.params[len(parentOfLastNode.params)-1]
-						for lastNode.name == "+" || lastNode.name == "-" || lastNode.name == ">" || lastNode.name == ">=" ||
-							lastNode.name == "<" || lastNode.name == "<=" || lastNode.name == "==" || lastNode.name == "!=" ||
-							lastNode.kind == aAssignmentStatement {
+					parentOfLastNode := &lastSubNode.Body[l-1]
+					if len(parentOfLastNode.Params) > 0 {
+						lastNode := &parentOfLastNode.Params[len(parentOfLastNode.Params)-1]
+						for lastNode.Name == "+" || lastNode.Name == "-" || lastNode.Name == ">" || lastNode.Name == ">=" ||
+							lastNode.Name == "<" || lastNode.Name == "<=" || lastNode.Name == "==" || lastNode.Name == "!=" ||
+							lastNode.Kind == aAssignmentStatement {
 							parentOfLastNode = lastNode
-							lastNode = &lastNode.params[len(lastNode.params)-1]
+							lastNode = &lastNode.Params[len(lastNode.Params)-1]
 						}
-						newNode := node{
-							kind:  aExpression,
-							name:  currentToken.value,
+						newNode := Node{
+							Kind:  aExpression,
+							Name:  currentToken.value,
 							token: currentToken,
-							params: []node{
+							Params: []Node{
 								*lastNode,
 								rightNode,
 							},
 						}
-						parentOfLastNode.params[len(parentOfLastNode.params)-1] = newNode
+						parentOfLastNode.Params[len(parentOfLastNode.Params)-1] = newNode
 						return newNode, errors.New("skip")
 					} else {
-						return node{}, fmt.Errorf("unexpected token at line%d, column%d", currentToken.line, currentToken.col)
+						return Node{}, fmt.Errorf("unexpected token at line%d, column%d", currentToken.line, currentToken.col)
 					}
 
 				}
 			} else {
-				return node{}, fmt.Errorf("unexpected end of tokens")
+				return Node{}, fmt.Errorf("unexpected end of tokens")
 			}
 		}
 		// modify lastSubNode in () or {}
-		if lastSubNode.kind == aExpression {
-			newNode := node{
-				kind:  aExpression,
+		if lastSubNode.Kind == aExpression {
+			newNode := Node{
+				Kind:  aExpression,
 				token: currentToken,
-				name:  currentToken.value,
+				Name:  currentToken.value,
 			}
 			if pc < len(pt)-1 {
 				pc++
 				rightNode, err := walk()
 				if err == nil {
-					if rightNode.kind == aBlank {
-						return node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
+					if rightNode.Kind == aBlank {
+						return Node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
 					}
 					parentOfLastNode := lastSubNode
-					if len(parentOfLastNode.params) > 0 {
-						lastNode := &lastSubNode.params[len(lastSubNode.params)-1]
-						for lastNode.name == "+" || lastNode.name == "-" || lastNode.name == ">" || lastNode.name == ">=" ||
-							lastNode.name == "<" || lastNode.name == "<=" || lastNode.name == "==" || lastNode.name == "!=" ||
-							lastNode.kind == aAssignmentStatement {
+					if len(parentOfLastNode.Params) > 0 {
+						lastNode := &lastSubNode.Params[len(lastSubNode.Params)-1]
+						for lastNode.Name == "+" || lastNode.Name == "-" || lastNode.Name == ">" || lastNode.Name == ">=" ||
+							lastNode.Name == "<" || lastNode.Name == "<=" || lastNode.Name == "==" || lastNode.Name == "!=" ||
+							lastNode.Kind == aAssignmentStatement {
 							parentOfLastNode = lastNode
-							lastNode = &lastNode.params[len(lastNode.params)-1]
+							lastNode = &lastNode.Params[len(lastNode.Params)-1]
 						}
-						newNode.params = []node{
+						newNode.Params = []Node{
 							*lastNode,
 							rightNode,
 						}
-						parentOfLastNode.params[len(parentOfLastNode.params)-1] = newNode
+						parentOfLastNode.Params[len(parentOfLastNode.Params)-1] = newNode
+						if len(lastSubNode.Params) == 1 {
+							_ = ns.pop()
+							ns.push(&newNode)
+						}
 						return newNode, errors.New("skip")
 					} else {
-						return node{}, fmt.Errorf("unexpected token at line%d, column%d", currentToken.line, currentToken.col)
+						return Node{}, fmt.Errorf("unexpected token at line%d, column%d", currentToken.line, currentToken.col)
 					}
 
 				}
 			} else {
-				return node{}, fmt.Errorf("unexpected end of tokens")
+				return Node{}, fmt.Errorf("unexpected end of tokens")
 			}
 			return newNode, errors.New("skip")
 		}
@@ -348,73 +353,77 @@ func walk() (node, error) {
 	// + -
 	if currentToken.kind == tPlus || currentToken.kind == tMinus {
 		lastSubNode := ns.peek()
-		if lastSubNode.kind == aProgram || lastSubNode.kind == aStatement {
+		if lastSubNode.Kind == aProgram || lastSubNode.Kind == aStatement {
 			// working at the top level
-			l := len(lastSubNode.body)
+			l := len(lastSubNode.Body)
 			if l > 0 && pc < len(pt)-1 {
 				pc++
 				rightNode, err := walk()
 				if err == nil {
-					if rightNode.kind == aBlank {
-						return node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
+					if rightNode.Kind == aBlank {
+						return Node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
 					}
 					// a = 1 + 2 * 3
 
 					// insert to the ground of the tree
-					parentOfLastNode := &lastSubNode.body[l-1]
-					lastNode := &parentOfLastNode.params[len(parentOfLastNode.params)-1]
-					for lastNode.name == ">" || lastNode.name == ">=" || lastNode.name == "<" || lastNode.name == "<=" ||
-						lastNode.name == "==" || lastNode.name == "!=" || lastNode.kind == aAssignmentStatement {
+					parentOfLastNode := &lastSubNode.Body[l-1]
+					lastNode := &parentOfLastNode.Params[len(parentOfLastNode.Params)-1]
+					for lastNode.Name == ">" || lastNode.Name == ">=" || lastNode.Name == "<" || lastNode.Name == "<=" ||
+						lastNode.Name == "==" || lastNode.Name == "!=" || lastNode.Kind == aAssignmentStatement {
 						parentOfLastNode = lastNode
-						lastNode = &lastNode.params[len(lastNode.params)-1]
+						lastNode = &lastNode.Params[len(lastNode.Params)-1]
 					}
-					newNode := node{
-						kind:  aExpression,
-						name:  currentToken.value,
+					newNode := Node{
+						Kind:  aExpression,
+						Name:  currentToken.value,
 						token: currentToken,
-						params: []node{
+						Params: []Node{
 							*lastNode,
 							rightNode,
 						},
 					}
-					parentOfLastNode.params[len(parentOfLastNode.params)-1] = newNode
+					parentOfLastNode.Params[len(parentOfLastNode.Params)-1] = newNode
 					return newNode, errors.New("skip")
 
 				}
 			} else {
-				return node{}, fmt.Errorf("unexpected end of tokens")
+				return Node{}, fmt.Errorf("unexpected end of tokens")
 			}
 		}
 		// modify lastSubNode in () or {}
-		if lastSubNode.kind == aExpression {
-			newNode := node{
-				kind:  aExpression,
+		if lastSubNode.Kind == aExpression {
+			newNode := Node{
+				Kind:  aExpression,
 				token: currentToken,
-				name:  currentToken.value,
+				Name:  currentToken.value,
 			}
 			if pc < len(pt)-1 {
 				pc++
 				rightNode, err := walk()
 				if err == nil {
-					if rightNode.kind == aBlank {
-						return node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
+					if rightNode.Kind == aBlank {
+						return Node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
 					}
 					parentOfLastNode := lastSubNode
-					lastNode := &lastSubNode.params[len(lastSubNode.params)-1]
-					for lastNode.name == ">" || lastNode.name == ">=" || lastNode.name == "<" || lastNode.name == "<=" ||
-						lastNode.name == "==" || lastNode.name == "!=" || lastNode.kind == aAssignmentStatement {
+					lastNode := &lastSubNode.Params[len(lastSubNode.Params)-1]
+					for lastNode.Name == ">" || lastNode.Name == ">=" || lastNode.Name == "<" || lastNode.Name == "<=" ||
+						lastNode.Name == "==" || lastNode.Name == "!=" || lastNode.Kind == aAssignmentStatement {
 						parentOfLastNode = lastNode
-						lastNode = &lastNode.params[len(lastNode.params)-1]
+						lastNode = &lastNode.Params[len(lastNode.Params)-1]
 					}
-					newNode.params = []node{
+					newNode.Params = []Node{
 						*lastNode,
 						rightNode,
 					}
-					parentOfLastNode.params[len(parentOfLastNode.params)-1] = newNode
+					parentOfLastNode.Params[len(parentOfLastNode.Params)-1] = newNode
+					if len(lastSubNode.Params) == 1 {
+						_ = ns.pop()
+						ns.push(&newNode)
+					}
 					return newNode, errors.New("skip")
 				}
 			} else {
-				return node{}, fmt.Errorf("unexpected end of tokens")
+				return Node{}, fmt.Errorf("unexpected end of tokens")
 			}
 			return newNode, errors.New("skip")
 		}
@@ -423,73 +432,73 @@ func walk() (node, error) {
 	// > >= < <= == !=
 	if currentToken.kind >= tCalcNotEqual && currentToken.kind <= tCalcEqual {
 		lastSubNode := ns.peek()
-		if lastSubNode.kind == aProgram || lastSubNode.kind == aStatement {
+		if lastSubNode.Kind == aProgram || lastSubNode.Kind == aStatement {
 			// working at the top level
-			l := len(lastSubNode.body)
+			l := len(lastSubNode.Body)
 			if l > 0 && pc < len(pt)-1 {
 				pc++
 				rightNode, err := walk()
 				if err == nil {
-					if rightNode.kind == aBlank {
-						return node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
+					if rightNode.Kind == aBlank {
+						return Node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
 					}
 					// a = 1 + 2 * 3
 
 					// insert to the ground of the tree
-					parentOfLastNode := &lastSubNode.body[l-1]
-					lastNode := &parentOfLastNode.params[len(parentOfLastNode.params)-1]
-					for lastNode.kind == aAssignmentStatement {
+					parentOfLastNode := &lastSubNode.Body[l-1]
+					lastNode := &parentOfLastNode.Params[len(parentOfLastNode.Params)-1]
+					for lastNode.Kind == aAssignmentStatement {
 						parentOfLastNode = lastNode
-						lastNode = &lastNode.params[len(lastNode.params)-1]
+						lastNode = &lastNode.Params[len(lastNode.Params)-1]
 					}
 
-					newNode := node{
-						kind:  aExpression,
-						name:  currentToken.value,
+					newNode := Node{
+						Kind:  aExpression,
+						Name:  currentToken.value,
 						token: currentToken,
-						params: []node{
+						Params: []Node{
 							*lastNode,
 							rightNode,
 						},
 					}
-					parentOfLastNode.params[len(parentOfLastNode.params)-1] = newNode
+					parentOfLastNode.Params[len(parentOfLastNode.Params)-1] = newNode
 					return newNode, errors.New("skip")
 
 				}
 			} else {
-				return node{}, fmt.Errorf("unexpected end of tokens")
+				return Node{}, fmt.Errorf("unexpected end of tokens")
 			}
 		}
 		// modify lastSubNode in () or {}
-		if lastSubNode.kind == aExpression {
-			newNode := node{
-				kind:  aExpression,
+		if lastSubNode.Kind == aExpression {
+			newNode := Node{
+				Kind:  aExpression,
 				token: currentToken,
-				name:  currentToken.value,
+				Name:  currentToken.value,
 			}
 			if pc < len(pt)-1 {
 				pc++
 				rightNode, err := walk()
 				if err == nil {
-					if rightNode.kind == aBlank {
-						return node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
+					if rightNode.Kind == aBlank {
+						return Node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
 					}
 					parentOfLastNode := lastSubNode
-					lastNode := &lastSubNode.params[len(lastSubNode.params)-1]
-					for lastNode.kind == aAssignmentStatement {
+					lastNode := &lastSubNode.Params[len(lastSubNode.Params)-1]
+					for lastNode.Kind == aAssignmentStatement {
 						parentOfLastNode = lastNode
-						lastNode = &lastNode.params[len(lastNode.params)-1]
+						lastNode = &lastNode.Params[len(lastNode.Params)-1]
 					}
 
-					newNode.params = []node{
+					newNode.Params = []Node{
 						*lastNode,
 						rightNode,
 					}
-					parentOfLastNode.params[len(parentOfLastNode.params)-1] = newNode
+					parentOfLastNode.Params[len(parentOfLastNode.Params)-1] = newNode
 					return newNode, errors.New("skip")
 				}
 			} else {
-				return node{}, fmt.Errorf("unexpected end of tokens")
+				return Node{}, fmt.Errorf("unexpected end of tokens")
 			}
 			return newNode, errors.New("skip")
 		}
@@ -497,89 +506,89 @@ func walk() (node, error) {
 
 	if currentToken.kind == tEqual {
 		lastSubNode := ns.peek()
-		if lastSubNode.kind == aProgram || lastSubNode.kind == aStatement {
+		if lastSubNode.Kind == aProgram || lastSubNode.Kind == aStatement {
 			// working at the top level
-			l := len(lastSubNode.body)
+			l := len(lastSubNode.Body)
 			if l > 0 {
 				if pc < len(pt)-1 {
 					pc++
 					rightNode, err := walk()
 					if err == nil {
-						if rightNode.kind == aBlank {
-							return node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
+						if rightNode.Kind == aBlank {
+							return Node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
 						}
 						// a = 1 + 2 * 3
 
-						if len(lastSubNode.body) > 0 {
-							lastNode := &lastSubNode.body[l-1]
-							if lastNode.kind == aAssignmentStatement {
-								return node{}, fmt.Errorf("assigning to an assigning statement at line%d, column%d", currentToken.line, currentToken.col)
+						if len(lastSubNode.Body) > 0 {
+							lastNode := &lastSubNode.Body[l-1]
+							if lastNode.Kind == aAssignmentStatement {
+								return Node{}, fmt.Errorf("assigning to an assigning statement at line%d, column%d", currentToken.line, currentToken.col)
 							}
 							if lastNode.token.kind != tIdentifier {
-								return node{}, fmt.Errorf("trying to assign to a non-id target at line%d, column%d", currentToken.line, currentToken.col)
+								return Node{}, fmt.Errorf("trying to assign to a non-id target at line%d, column%d", currentToken.line, currentToken.col)
 							}
 
-							newNode := node{
-								kind:  aAssignmentStatement,
-								name:  currentToken.value,
+							newNode := Node{
+								Kind:  aAssignmentStatement,
+								Name:  currentToken.value,
 								token: currentToken,
-								params: []node{
+								Params: []Node{
 									*lastNode,
 									rightNode,
 								},
 							}
-							lastSubNode.body[l-1] = newNode
+							lastSubNode.Body[l-1] = newNode
 							return newNode, errors.New("skip")
 						} else {
-							return node{}, fmt.Errorf("can not find assigning target at line%d, column%d", currentToken.line, currentToken.col)
+							return Node{}, fmt.Errorf("can not find assigning target at line%d, column%d", currentToken.line, currentToken.col)
 						}
 					}
 				} else {
-					return node{}, fmt.Errorf("unexpected end of tokens")
+					return Node{}, fmt.Errorf("unexpected end of tokens")
 				}
 			} else {
-				return node{}, fmt.Errorf("can not find assigning target at line%d, column%d", currentToken.line, currentToken.col)
+				return Node{}, fmt.Errorf("can not find assigning target at line%d, column%d", currentToken.line, currentToken.col)
 			}
-		} else if lastSubNode.kind == aExpression {
+		} else if lastSubNode.Kind == aExpression {
 			// for(i=0;i<n;i++)
-			l := len(lastSubNode.params)
+			l := len(lastSubNode.Params)
 			if l > 0 && pc < len(pt)-1 {
 				pc++
 				rightNode, err := walk()
 				if err == nil {
-					if rightNode.kind == aBlank {
-						return node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
+					if rightNode.Kind == aBlank {
+						return Node{}, fmt.Errorf("unexpected token at line%d, column%d", rightNode.token.line, rightNode.token.col)
 					}
 					// a = 1 + 2 * 3
 
-					if len(lastSubNode.params) > 0 {
-						lastNode := &lastSubNode.params[l-1]
-						if lastNode.kind == aAssignmentStatement {
-							return node{}, fmt.Errorf("assigning to an assigning statement at line%d, column%d", currentToken.line, currentToken.col)
+					if len(lastSubNode.Params) > 0 {
+						lastNode := &lastSubNode.Params[l-1]
+						if lastNode.Kind == aAssignmentStatement {
+							return Node{}, fmt.Errorf("assigning to an assigning statement at line%d, column%d", currentToken.line, currentToken.col)
 						}
 						if lastNode.token.kind != tIdentifier {
-							return node{}, fmt.Errorf("trying to assign to a non-id target at line%d, column%d", currentToken.line, currentToken.col)
+							return Node{}, fmt.Errorf("trying to assign to a non-id target at line%d, column%d", currentToken.line, currentToken.col)
 						}
-						newNode := node{
-							kind:  aAssignmentStatement,
-							name:  currentToken.value,
+						newNode := Node{
+							Kind:  aAssignmentStatement,
+							Name:  currentToken.value,
 							token: currentToken,
-							params: []node{
+							Params: []Node{
 								*lastNode,
 								rightNode,
 							},
 						}
-						lastSubNode.params[l-1] = newNode
+						lastSubNode.Params[l-1] = newNode
 						return newNode, errors.New("skip")
 					} else {
-						return node{}, fmt.Errorf("can not find assigning target at line%d, column%d", currentToken.line, currentToken.col)
+						return Node{}, fmt.Errorf("can not find assigning target at line%d, column%d", currentToken.line, currentToken.col)
 					}
 				}
 			} else {
-				return node{}, fmt.Errorf("unexpected end of tokens")
+				return Node{}, fmt.Errorf("unexpected end of tokens")
 			}
 		} else {
-			return node{}, fmt.Errorf("unexpected token at line%d, column%d", currentToken.line, currentToken.col)
+			return Node{}, fmt.Errorf("unexpected token at line%d, column%d", currentToken.line, currentToken.col)
 		}
 	}
 
@@ -588,10 +597,10 @@ func walk() (node, error) {
 		pc++
 		/*And we'll return a new AST node called `NumberLiteral` and setting its
 		value to the value of our token.*/
-		newNode := node{
-			kind:  aNumberLiteral,
-			name:  currentToken.value,
-			value: currentToken.value,
+		newNode := Node{
+			Kind:  aNumberLiteral,
+			Name:  currentToken.value,
+			Value: currentToken.value,
 			token: currentToken,
 		}
 		return newNode, nil
@@ -599,10 +608,10 @@ func walk() (node, error) {
 
 	if currentToken.kind == tString {
 		pc++
-		newNode := node{
-			kind:  aStringLiteral,
-			name:  currentToken.value,
-			value: currentToken.value,
+		newNode := Node{
+			Kind:  aStringLiteral,
+			Name:  currentToken.value,
+			Value: currentToken.value,
 			token: currentToken,
 		}
 		return newNode, nil
@@ -610,52 +619,52 @@ func walk() (node, error) {
 
 	// tPrint calls fmt.Println() directly
 	if currentToken.kind == tPrint {
-		currentNode := node{
-			kind:  aExpression,
-			name:  currentToken.value,
+		currentNode := Node{
+			Kind:  aExpression,
+			Name:  currentToken.value,
 			token: currentToken,
 		}
 		pc++
 		p1, err := walk()
 		if err != nil {
-			return node{}, err
+			return Node{}, err
 		}
-		currentNode.params = []node{p1}
+		currentNode.Params = p1.Params
 		return p1, nil
 	}
 
 	// tIf -> aStatement{body={aStatementIf{param=(aExpression); body={aStatement}}}}
 	if currentToken.kind == tIf {
-		currentNode := node{
-			kind:  aStatementIf,
-			name:  currentToken.value,
+		currentNode := Node{
+			Kind:  aStatementIf,
+			Name:  currentToken.value,
 			token: currentToken,
 		}
 
 		// if param
-		ifExpression := node{
-			kind: aExpression,
+		ifExpression := Node{
+			Kind: aExpression,
 		}
 		ns.push(&ifExpression)
 
 		pc++
 		p1, err := walk()
 		if err != nil {
-			return node{}, err
+			return Node{}, err
 		}
 		_ = ns.pop()
-		currentNode.params = p1.params
+		currentNode.Params = p1.Params
 
 		// if body
 		if pt[pc].kind == tLBrace {
 			pc++
 			ifTrue, err := walk()
 			if err != nil {
-				return node{}, err
+				return Node{}, err
 			}
-			currentNode.body = []node{ifTrue}
+			currentNode.Body = []Node{ifTrue}
 		} else {
-			return node{}, fmt.Errorf("unexpected token at line%d, column%d", currentToken.line, currentToken.col)
+			return Node{}, fmt.Errorf("unexpected token at line%d, column%d", currentToken.line, currentToken.col)
 		}
 
 		// else? append to body
@@ -663,79 +672,79 @@ func walk() (node, error) {
 			pc = pc + 2
 			ifFalseElse, err := walk()
 			if err != nil {
-				return node{}, err
+				return Node{}, err
 			}
-			currentNode.body = append(currentNode.body, ifFalseElse)
+			currentNode.Body = append(currentNode.Body, ifFalseElse)
 		}
 
 		return currentNode, nil
 	}
 
 	if currentToken.kind == tFor {
-		currentNode := node{
-			kind:  aStatementFor,
-			name:  currentToken.value,
+		currentNode := Node{
+			Kind:  aStatementFor,
+			Name:  currentToken.value,
 			token: currentToken,
 		}
 		// for param
-		forExpression := node{
-			kind: aExpression,
+		forExpression := Node{
+			Kind: aExpression,
 		}
 		ns.push(&forExpression)
 
 		pc++
 		p1, err := walk()
 		if err != nil {
-			return node{}, err
+			return Node{}, err
 		}
 		_ = ns.pop()
-		currentNode.params = p1.params
+		currentNode.Params = p1.Params
 
 		// for body
 		if pt[pc].kind == tLBrace {
 			pc++
 			forBody, err := walk()
 			if err != nil {
-				return node{}, err
+				return Node{}, err
 			}
-			currentNode.body = []node{forBody}
+			currentNode.Body = []Node{forBody}
 		} else {
-			return node{}, fmt.Errorf("unexpected token at line%d, column%d, should be for body", currentToken.line, currentToken.col)
+			return Node{}, fmt.Errorf("unexpected token at line%d, column%d, should be for body", currentToken.line, currentToken.col)
 		}
 
 		return currentNode, nil
 	}
 
 	if currentToken.kind == tWhile {
-		currentNode := node{
-			kind:  aStatementWhile,
-			name:  currentToken.value,
+		currentNode := Node{
+			Kind:  aStatementWhile,
+			Name:  currentToken.value,
 			token: currentToken,
 		}
 		// while param
-		whileExpression := node{
-			kind: aExpression,
+		whileExpression := Node{
+			Kind: aExpression,
 		}
 		ns.push(&whileExpression)
 
 		pc++
 		p1, err := walk()
 		if err != nil {
-			return node{}, err
+			return Node{}, err
 		}
 		_ = ns.pop()
-		currentNode.params = p1.params
+		currentNode.Params = p1.Params
 
 		// while body
 		if pt[pc].kind == tLBrace {
 			pc++
 			whileBody, err := walk()
 			if err != nil {
-				return node{}, err
+				return Node{}, err
 			}
-			currentNode.body = []node{whileBody}
+			currentNode.Body = []Node{whileBody}
 		} else {
-			return node{}, fmt.Errorf("unexpected token at line%d, column%d, should be while body", currentToken.line, currentToken.col)
+			return Node{}, fmt.Errorf("unexpected token at line%d, column%d, should be while body", currentToken.line, currentToken.col)
 		}
 
 		return currentNode, nil
@@ -760,23 +769,23 @@ func walk() (node, error) {
 					} else if pt[pc+1].kind == tLParen {*/
 			if pt[pc+1].kind == tLParen {
 				// looks like it is Calling a function like `a()`
-				currentNode := node{
-					kind:  aExpression,
-					name:  currentToken.value,
+				currentNode := Node{
+					Kind:  aExpression,
+					Name:  currentToken.value,
 					token: currentToken,
 				}
 				pc++
 				p1, err := walk()
 				if err == nil {
-					currentNode.params = []node{p1}
+					currentNode.Params = []Node{p1}
 				}
 				return currentNode, nil
 			} else {
 				// looks like someone is calling us like `1 + a`
 				pc++
-				currentNode := node{
-					kind:  aExpression,
-					name:  currentToken.value,
+				currentNode := Node{
+					Kind:  aExpression,
+					Name:  currentToken.value,
 					token: currentToken,
 				}
 				return currentNode, nil
@@ -786,9 +795,9 @@ func walk() (node, error) {
 
 	// we skip it when we don't know what is it
 	pc++
-	return node{
-		kind:  aBlank,
-		name:  currentToken.value,
+	return Node{
+		Kind:  aBlank,
+		Name:  currentToken.value,
 		token: currentToken,
 	}, nil
 }
@@ -796,16 +805,16 @@ func walk() (node, error) {
 // nodeStack is a simple LIFO
 // that stores for LRs objects like `()` and `{}`
 type nodeStack struct {
-	nodes []*node
+	nodes []*Node
 }
 
-var ns = nodeStack{make([]*node, 0)}
+var ns = nodeStack{make([]*Node, 0)}
 
-func (s *nodeStack) push(n *node) {
+func (s *nodeStack) push(n *Node) {
 	s.nodes = append(s.nodes, n)
 }
 
-func (s *nodeStack) pop() *node {
+func (s *nodeStack) pop() *Node {
 	if len(s.nodes) == 0 {
 		return nil
 	}
@@ -814,7 +823,7 @@ func (s *nodeStack) pop() *node {
 	return n
 }
 
-func (s *nodeStack) peek() *node {
+func (s *nodeStack) peek() *Node {
 	if len(s.nodes) == 0 {
 		return nil
 	}
