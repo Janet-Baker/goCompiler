@@ -40,6 +40,7 @@ const (
 	tCalcEqual        // "=="
 	tEqual            // "="
 	// keywords Statement
+	tReturn     // "return"
 	tIf         // "if"
 	tElse       // "else"
 	tFor        // "for"
@@ -65,7 +66,9 @@ func tokenize(content []byte) (tokens []token, err error) {
 		switch {
 		// "\n"                    SAVE_TOKEN; return tNewLine;
 		case content[currPos] == '\n':
-			if content[currPos+1] != '\n' {
+			if content[currPos-1] == '\r' {
+				tokens[i] = token{tNewLine, "\\n", line, col - 1}
+			} else {
 				tokens[i] = token{tNewLine, "\\n", line, col}
 				i++
 			}
@@ -73,7 +76,7 @@ func tokenize(content []byte) (tokens []token, err error) {
 			col = 1
 			break
 
-		// '"'                     SAVE_TOKEN; return tString;
+		// '\"'                     SAVE_TOKEN; return tString;
 		case content[currPos] == '"':
 			t := token{tString, "", line, col}
 			// read to the next "
@@ -99,7 +102,7 @@ func tokenize(content []byte) (tokens []token, err error) {
 			break
 
 		// [0-9]+                  SAVE_TOKEN; return tInteger;
-		case content[currPos] > '0' && content[currPos] < '9':
+		case (content[currPos] >= '0') && (content[currPos] <= '9'):
 			// store the number string to value
 			// tokens[i] = token{TINTEGER, value, line, col}
 			tokens[i] = token{tInteger, "", line, col}
@@ -246,6 +249,14 @@ func tokenize(content []byte) (tokens []token, err error) {
 			}
 			break
 
+		// "return"                return TOKEN(tReturn);
+		case content[currPos] == 'r' && content[currPos+1] == 'e' && content[currPos+2] == 't' && content[currPos+3] == 'u' && content[currPos+4] == 'r' && content[currPos+5] == 'n':
+			tokens[i] = token{tReturn, "return", line, col}
+			i++
+			col = col + 6
+			currPos = currPos + 5
+			break
+
 		// "if"                    return TOKEN(tIf);
 		case content[currPos] == 'i' && content[currPos+1] == 'f':
 			tokens[i] = token{tIf, "if", line, col}
@@ -281,7 +292,7 @@ func tokenize(content []byte) (tokens []token, err error) {
 		//	[a-zA-Z_][a-zA-Z0-9_]*  SAVE_TOKEN; return tIdentifier;
 		case content[currPos] >= 'a' && content[currPos] <= 'z' || content[currPos] >= 'A' && content[currPos] <= 'Z' || content[currPos] == '_':
 			targetPos := currPos + 1
-			for targetPos < len(content) && (content[targetPos] >= 'a' && content[targetPos] <= 'z' || content[targetPos] >= 'A' && content[targetPos] <= 'Z' || content[targetPos] == '_' || content[targetPos] >= '0' && content[targetPos] <= '9') {
+			for targetPos < len(content) && ((content[targetPos] >= 'a' && content[targetPos] <= 'z') || (content[targetPos] >= 'A' && content[targetPos] <= 'Z') || (content[targetPos] == '_') || (content[targetPos] >= '0' && content[targetPos] <= '9')) {
 				targetPos++
 			}
 			value := string(content[currPos:targetPos])

@@ -1,4 +1,7 @@
 a = 111 + 222 * 333 + 444
-b = 111 * 222 + 333 * 444
+b = 1 + a * 444
 print(a)
 print(b)
+if (a < 0) {print(a)} else {print(b)}
+while (a < 0) { print(a) }
+for (b=0;b<10;b=b+1) { print(b) }
