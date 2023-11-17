@@ -17,7 +17,7 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
-	//fmt.Printf("%+v", tokens)
+	//fmt.Printf("%+v\n", tokens)
 	_ = os.WriteFile("test.token", []byte(fmt.Sprintf("%+v", tokens)), 0o644)
 	// 语法分析
 	ast, err := parser(&tokens)
@@ -25,8 +25,10 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
-	fmt.Printf("%+v", ast)
+	//fmt.Printf("%+v\n", ast)
 	_ = os.WriteFile("test.ast", []byte(fmt.Sprintf("%+v", ast)), 0o644)
+
+	_ = ast.run()
 
 	//flag.Parse()
 	//target := flag.Args()

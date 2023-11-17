@@ -14,7 +14,7 @@ import (
 
 // token type iota
 const (
-	tInvalid = iota
+	_        = iota
 	tNewLine // \n
 	tString  // ".*"
 	tInteger // [0-9]+

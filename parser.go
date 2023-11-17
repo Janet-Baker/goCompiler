@@ -41,6 +41,7 @@ type node struct {
 // aStatement -> (If | Else | For) [aExpression] {aStatement}
 // aNumberLiteral -> tInteger
 const (
+	//aBlank 空白标识符
 	aBlank = 100 + iota
 	//aProgram 一个子程序
 	aProgram
@@ -610,7 +611,7 @@ func walk() (node, error) {
 	// tPrint calls fmt.Println() directly
 	if currentToken.kind == tPrint {
 		currentNode := node{
-			kind:  aStatement,
+			kind:  aExpression,
 			name:  currentToken.value,
 			token: currentToken,
 		}
@@ -642,8 +643,8 @@ func walk() (node, error) {
 		if err != nil {
 			return node{}, err
 		}
-		ifExpression = *ns.pop()
-		currentNode.params = []node{p1}
+		_ = ns.pop()
+		currentNode.params = p1.params
 
 		// if body
 		if pt[pc].kind == tLBrace {
@@ -658,8 +659,8 @@ func walk() (node, error) {
 		}
 
 		// else? append to body
-		if pt[pc].kind == tElse {
-			pc++
+		if pt[pc+1].kind == tElse {
+			pc = pc + 2
 			ifFalseElse, err := walk()
 			if err != nil {
 				return node{}, err
@@ -687,8 +688,8 @@ func walk() (node, error) {
 		if err != nil {
 			return node{}, err
 		}
-		forExpression = *ns.pop()
-		currentNode.params = []node{p1}
+		_ = ns.pop()
+		currentNode.params = p1.params
 
 		// for body
 		if pt[pc].kind == tLBrace {
@@ -722,7 +723,7 @@ func walk() (node, error) {
 		if err != nil {
 			return node{}, err
 		}
-		whileExpression = *ns.pop()
+		_ = ns.pop()
 		currentNode.params = p1.params
 
 		// while body
