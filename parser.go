@@ -36,6 +36,25 @@ type Node struct {
 	//context    *[]node
 }
 
+/* 文法定义
+Program     -> StatementList
+StatementList -> Statement StatementList | ε
+Statement   -> AssignmentStatement | PrintStatement | IfStatement | WhileStatement | ForStatement
+AssignmentStatement -> Identifier = Expression
+PrintStatement -> print(Expression)
+IfStatement  -> if(Expression) {Statement} else {Statement}
+WhileStatement -> while(Expression) {Statement}
+ForStatement -> for(Statement; Expression; Statement) {Statement}
+Expression  -> UnaryExpression | BinaryExpression | ParenthesizedExpression | Identifier | Literal
+UnaryExpression   -> Operator Expression
+BinaryExpression  -> Expression Operator Expression
+ParenthesizedExpression -> (Expression)
+Identifier  -> (a-zA-Z_)[a-zA-Z0-9_]*
+Literal     -> Number | String
+Number      -> [0-9]+
+String      -> "[^"]*"
+*/
+
 // kind of ast
 // aProgram -> aStatement | aExpression
 // aExpression -> + | - | * | / | Function
